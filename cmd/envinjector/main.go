@@ -219,7 +219,7 @@ func hook(ctx context.Context, bindingContextPath string, k8sPatchPath string) e
 			}
 			err = yevna.Run(
 				ctx,
-				yevna.Input(ope),
+				yevna.Input(ope.Render()),
 				yevna.HandlerFunc(func(c *yevna.Context, in any) (any, error) {
 					return json.Marshal(in)
 				}),
