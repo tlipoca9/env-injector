@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/tlipoca9/yevna"
+	"github.com/tlipoca9/yevna/parser"
 	"github.com/urfave/cli/v2"
 )
 
@@ -90,30 +91,78 @@ func main() {
 	}
 }
 
+/*
+Examples:
+[
+
+	{
+	  "binding": "envinjector",
+	  "objects": [
+	    {
+	      "filterResult": {
+	        "containers": [
+	          {
+	            "env": [
+	              {
+	                "name": "K8S_NODE_NAME",
+	                "valueFrom": {
+	                  "fieldRef": {
+	                    "apiVersion": "v1",
+	                    "fieldPath": "spec.nodeName"
+	                  }
+	                }
+	              },
+	              {
+	                "name": "CILIUM_K8S_NAMESPACE",
+	                "valueFrom": {
+	                  "fieldRef": {
+	                    "apiVersion": "v1",
+	                    "fieldPath": "metadata.namespace"
+	                  }
+	                }
+	              }
+	            ],
+	            "name": "cilium-envoy"
+	          }
+	        ],
+	        "labels": {
+	          "app.kubernetes.io/name": "cilium-envoy",
+	          "app.kubernetes.io/part-of": "cilium",
+	          "controller-revision-hash": "5df6b5d4db",
+	          "k8s-app": "cilium-envoy",
+	          "name": "cilium-envoy",
+	          "pod-template-generation": "1"
+	        },
+	        "name": "cilium-envoy-9gx5c",
+	        "namespace": "kube-system"
+	      }
+	    }
+	  ],
+	  "type": "Synchronization"
+	}
+
+]
+*/
 func hook(ctx context.Context, bindingContextPath string) error {
-	var bindingContextPathStr string
+	var pods []Pod
 	err := yevna.Run(
 		ctx,
 		yevna.OpenFile(bindingContextPath),
-		yevna.ToStr(),
-		yevna.Output(&bindingContextPathStr),
-		// yevna.Gjson(".[].object"),
-		// yevna.Unmarshal(parser.JSON(), &pods),
+		yevna.Gjson("#.objects.#.filterResult|@flatten"),
+		yevna.Unmarshal(parser.JSON(), &pods),
 	)
 	if err != nil {
 		return err
 	}
-	slog.InfoContext(ctx, "received events", "events", bindingContextPathStr)
-	// var pods []Pod
-	// slog.InfoContext(ctx, "received events", "pods_count", len(pods))
-	// for _, pod := range pods {
-	// 	log := slog.With("namespace", pod.Namespace, "name", pod.Name)
-	// 	for _, container := range pod.Containers {
-	// 		log = log.With("container", container.Name)
-	// 		log.DebugContext(ctx, "processing container")
-	// 		// TODO: check if container has env vars
-	// 	}
-	// }
+	slog.InfoContext(ctx, "received events", "pods_count", len(pods))
+	for _, pod := range pods {
+		log := slog.With("namespace", pod.Namespace, "name", pod.Name)
+		for _, container := range pod.Containers {
+			log = log.With("container", container.Name)
+			log.DebugContext(ctx, "processing container")
+			// TODO: check if container has env vars
+		}
+	}
 
 	return nil
 }
