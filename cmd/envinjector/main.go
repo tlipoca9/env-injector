@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/cockroachdb/errors"
 	"github.com/oklog/ulid/v2"
 	"github.com/tlipoca9/env-injector/operation"
 	"github.com/tlipoca9/yevna"
@@ -54,6 +53,16 @@ type EnvVar struct {
 	Value string `json:"value"`
 }
 
+var logfile *os.File
+
+func init() {
+	var err error
+	logfile, err = os.OpenFile("/var/log/envinjector", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func main() {
 	app := &cli.App{
 		Name:  "envinjector",
@@ -84,11 +93,6 @@ func main() {
 			if c.Bool("config") {
 				fmt.Print(CONFIG[1:])
 				return nil
-			}
-
-			logfile, err := os.OpenFile("/var/log/envinjector", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-			if err != nil {
-				return errors.Wrapf(err, "cannot open log file")
 			}
 
 			logger := slog.NewTextHandler(logfile, &slog.HandlerOptions{
@@ -224,6 +228,7 @@ func hook(ctx context.Context, bindingContextPath string, k8sPatchPath string) e
 		yevna.HandlerFunc(func(c *yevna.Context, in any) (any, error) {
 			return json.Marshal(in)
 		}),
+		yevna.Tee(logfile),
 		yevna.WriteFile(k8sPatchPath),
 	)
 }
