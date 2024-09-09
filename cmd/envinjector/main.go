@@ -17,15 +17,15 @@ configVersion: v1
 kubernetes:
 - apiVersion: v1
   kind: Pod
-	name: envinjector
+  name: envinjector
   executeHookOnEvent: [ "Added", "Modified" ]
-	jqFilter: |
-		{
-			"namespace": .metadata.namespace,
-			"name": .metadata.name,
-			"labels": .metadata.labels,
-			"containers": [.spec.containers[] | {name: .name, env: .env}],
-		}
+  jqFilter: |
+    {
+      "namespace": .metadata.namespace,
+      "name": .metadata.name,
+      "labels": .metadata.labels,
+      "containers": [.spec.containers[] | {name: .name, env: .env}],
+    }
 `
 
 type Pod struct {
