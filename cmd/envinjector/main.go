@@ -182,8 +182,7 @@ func hook(ctx context.Context, bindingContextPath string, k8sPatchPath string) e
 	}
 	log.InfoContext(ctx, "event parse success", "pods_count", len(pods))
 
-	tmpl := `.spec.containers[%d].env = .spec.containers[%d].env + `
-	operations := make([]operation.JQPatch, 0)
+	tmpl := `.spec.containers[%d].env = .spec.containers[%d].env + %s`
 	for _, pod := range pods {
 		log := log.With("namespace", pod.Namespace, "name", pod.Name)
 		for i, container := range pod.Containers {
@@ -216,19 +215,22 @@ func hook(ctx context.Context, bindingContextPath string, k8sPatchPath string) e
 				Kind:       "Pod",
 				Namespace:  pod.Namespace,
 				Name:       pod.Name,
-				JQFilter:   fmt.Sprintf(tmpl, i, i) + string(buf),
+				JQFilter:   fmt.Sprintf(tmpl, i, i, string(buf)),
 			}
-			operations = append(operations, ope)
+			err = yevna.Run(
+				ctx,
+				yevna.Input(ope),
+				yevna.HandlerFunc(func(c *yevna.Context, in any) (any, error) {
+					return json.Marshal(in)
+				}),
+				yevna.Tee(logfile),
+				yevna.AppendFile(k8sPatchPath),
+			)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	return yevna.Run(
-		ctx,
-		yevna.Input(operations),
-		yevna.HandlerFunc(func(c *yevna.Context, in any) (any, error) {
-			return json.Marshal(in)
-		}),
-		yevna.Tee(logfile),
-		yevna.WriteFile(k8sPatchPath),
-	)
+	return nil
 }
