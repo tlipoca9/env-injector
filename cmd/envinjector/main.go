@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/tlipoca9/yevna"
-	"github.com/tlipoca9/yevna/parser"
 	"github.com/urfave/cli/v2"
 )
 
@@ -92,25 +91,29 @@ func main() {
 }
 
 func hook(ctx context.Context, bindingContextPath string) error {
-	var pods []Pod
+	var bindingContextPathStr string
 	err := yevna.Run(
 		ctx,
-		yevna.Cat(bindingContextPath),
-		yevna.Gjson(".[].object"),
-		yevna.Unmarshal(parser.JSON(), &pods),
+		yevna.OpenFile(bindingContextPath),
+		yevna.ToStr(),
+		yevna.Output(&bindingContextPathStr),
+		// yevna.Gjson(".[].object"),
+		// yevna.Unmarshal(parser.JSON(), &pods),
 	)
 	if err != nil {
 		return err
 	}
-	slog.InfoContext(ctx, "received events", "pods_count", len(pods))
-	for _, pod := range pods {
-		log := slog.With("namespace", pod.Namespace, "name", pod.Name)
-		for _, container := range pod.Containers {
-			log = log.With("container", container.Name)
-			log.DebugContext(ctx, "processing container")
-			// TODO: check if container has env vars
-		}
-	}
+	slog.InfoContext(ctx, "received events", "events", bindingContextPathStr)
+	// var pods []Pod
+	// slog.InfoContext(ctx, "received events", "pods_count", len(pods))
+	// for _, pod := range pods {
+	// 	log := slog.With("namespace", pod.Namespace, "name", pod.Name)
+	// 	for _, container := range pod.Containers {
+	// 		log = log.With("container", container.Name)
+	// 		log.DebugContext(ctx, "processing container")
+	// 		// TODO: check if container has env vars
+	// 	}
+	// }
 
 	return nil
 }
