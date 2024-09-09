@@ -182,7 +182,7 @@ func hook(ctx context.Context, bindingContextPath string, k8sPatchPath string) e
 	}
 	log.InfoContext(ctx, "event parse success", "pods_count", len(pods))
 
-	tmpl := `.spec.containers[%d].env = .spec.containers[%d].env + %s`
+	tmpl := `.spec.containers[%d].env = .spec.containers[%d].env + `
 	operations := make([]operation.JQPatch, 0)
 	for _, pod := range pods {
 		log := log.With("namespace", pod.Namespace, "name", pod.Name)
@@ -216,7 +216,7 @@ func hook(ctx context.Context, bindingContextPath string, k8sPatchPath string) e
 				Kind:       "Pod",
 				Namespace:  pod.Namespace,
 				Name:       pod.Name,
-				JQFilter:   fmt.Sprintf(tmpl, i, i, string(buf)),
+				JQFilter:   fmt.Sprintf(tmpl, i, i) + string(buf),
 			}
 			operations = append(operations, ope)
 		}
