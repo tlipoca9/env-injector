@@ -164,7 +164,7 @@ Examples:
 */
 func hook(ctx context.Context, bindingContextPath string, k8sPatchPath string) error {
 	log := slog.With("event_id", ctx.Value(EventIDCtxKey))
-	log.InfoContext(ctx, "received event")
+	log.InfoContext(ctx, "received event", "binding-context-path", bindingContextPath, "k8s-patch-path", k8sPatchPath)
 
 	var pods []Pod
 	err := yevna.Run(
