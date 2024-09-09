@@ -3,12 +3,12 @@ module github.com/tlipoca9/env-injector
 go 1.23.1
 
 require (
+	github.com/cockroachdb/errors v1.11.3
 	github.com/tlipoca9/yevna v0.2.2
 	github.com/urfave/cli/v2 v2.27.4
 )
 
 require (
-	github.com/cockroachdb/errors v1.11.3 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/cockroachdb/errors"
 	"github.com/tlipoca9/yevna"
 	"github.com/tlipoca9/yevna/parser"
 	"github.com/urfave/cli/v2"
@@ -73,11 +74,16 @@ func main() {
 				return nil
 			}
 
-			logger := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			logfile, err := os.OpenFile("/var/log/envinjector", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+			if err != nil {
+				return errors.Wrapf(err, "cannot open log file")
+			}
+
+			logger := slog.NewTextHandler(logfile, &slog.HandlerOptions{
 				Level: slog.LevelInfo,
 			})
 			if c.Bool("debug") {
-				logger = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+				logger = slog.NewTextHandler(logfile, &slog.HandlerOptions{
 					Level: slog.LevelDebug,
 				})
 			}
@@ -159,7 +165,7 @@ func hook(ctx context.Context, bindingContextPath string) error {
 		log := slog.With("namespace", pod.Namespace, "name", pod.Name)
 		for _, container := range pod.Containers {
 			log = log.With("container", container.Name)
-			log.DebugContext(ctx, "processing container")
+			log.InfoContext(ctx, "processing container")
 			// TODO: check if container has env vars
 		}
 	}
