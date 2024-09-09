@@ -8,12 +8,16 @@ import (
 	"os"
 
 	"github.com/cockroachdb/errors"
+	"github.com/oklog/ulid/v2"
 	"github.com/tlipoca9/yevna"
 	"github.com/tlipoca9/yevna/parser"
 	"github.com/urfave/cli/v2"
 )
 
-const CONFIG = `
+type CtxKey string
+
+const (
+	CONFIG = `
 configVersion: v1
 kubernetes:
 - apiVersion: v1
@@ -28,6 +32,8 @@ kubernetes:
       "containers": [.spec.containers[] | {name: .name, env: .env}],
     }
 `
+	EventIDCtxKey CtxKey = "event_id"
+)
 
 type Pod struct {
 	Namespace  string            `json:"namespace"`
@@ -88,7 +94,8 @@ func main() {
 				})
 			}
 			slog.SetDefault(slog.New(logger))
-			return hook(c.Context, c.Path("binding-context-path"))
+			ctx := context.WithValue(c.Context, EventIDCtxKey, ulid.Make().String())
+			return hook(ctx, c.Path("binding-context-path"))
 		},
 	}
 
@@ -150,6 +157,9 @@ Examples:
 ]
 */
 func hook(ctx context.Context, bindingContextPath string) error {
+	log := slog.With("event_id", ctx.Value(EventIDCtxKey))
+	log.InfoContext(ctx, "received event")
+
 	var pods []Pod
 	err := yevna.Run(
 		ctx,
@@ -160,9 +170,9 @@ func hook(ctx context.Context, bindingContextPath string) error {
 	if err != nil {
 		return err
 	}
-	slog.InfoContext(ctx, "received events", "pods_count", len(pods))
+	log.InfoContext(ctx, "event parse success", "pods_count", len(pods))
 	for _, pod := range pods {
-		log := slog.With("namespace", pod.Namespace, "name", pod.Name)
+		log := log.With("namespace", pod.Namespace, "name", pod.Name)
 		for _, container := range pod.Containers {
 			log = log.With("container", container.Name)
 			log.InfoContext(ctx, "processing container")

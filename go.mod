@@ -4,6 +4,7 @@ go 1.23.1
 
 require (
 	github.com/cockroachdb/errors v1.11.3
+	github.com/oklog/ulid/v2 v2.1.0
 	github.com/tlipoca9/yevna v0.2.2
 	github.com/urfave/cli/v2 v2.27.4
 )
