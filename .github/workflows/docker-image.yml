@@ -5,7 +5,7 @@ on:
     branches: main
 
 jobs:
-  login:
+  ghcr:
     runs-on: ubuntu-latest
     steps:
       -
