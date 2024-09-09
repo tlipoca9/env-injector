@@ -70,6 +70,7 @@ func main() {
 		Action: func(c *cli.Context) error {
 			if c.Bool("config") {
 				fmt.Print(CONFIG[1:])
+				return nil
 			}
 
 			logger := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
