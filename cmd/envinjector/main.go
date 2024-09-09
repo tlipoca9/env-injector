@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/oklog/ulid/v2"
+	"github.com/tlipoca9/env-injector/operation"
 	"github.com/tlipoca9/yevna"
 	"github.com/tlipoca9/yevna/parser"
 	"github.com/urfave/cli/v2"
@@ -64,6 +66,10 @@ func main() {
 				Name:    "binding-context-path",
 				EnvVars: []string{"BINDING_CONTEXT_PATH"},
 			},
+			&cli.PathFlag{
+				Name:    "k8s-patch-path",
+				EnvVars: []string{"KUBERNETES_PATCH_PATH"},
+			},
 			&cli.BoolFlag{
 				Name:    "debug",
 				EnvVars: []string{"ENVINJECTOR_DEBUG"},
@@ -95,7 +101,7 @@ func main() {
 			}
 			slog.SetDefault(slog.New(logger))
 			ctx := context.WithValue(c.Context, EventIDCtxKey, ulid.Make().String())
-			return hook(ctx, c.Path("binding-context-path"))
+			return hook(ctx, c.Path("binding-context-path"), c.Path("k8s-patch-path"))
 		},
 	}
 
@@ -156,7 +162,7 @@ Examples:
 
 ]
 */
-func hook(ctx context.Context, bindingContextPath string) error {
+func hook(ctx context.Context, bindingContextPath string, k8sPatchPath string) error {
 	log := slog.With("event_id", ctx.Value(EventIDCtxKey))
 	log.InfoContext(ctx, "received event")
 
@@ -171,14 +177,53 @@ func hook(ctx context.Context, bindingContextPath string) error {
 		return err
 	}
 	log.InfoContext(ctx, "event parse success", "pods_count", len(pods))
+
+	tmpl := `.spec.containers[%d].env = .spec.containers[%d].env + %s`
+	operations := make([]operation.JQPatch, 0)
 	for _, pod := range pods {
 		log := log.With("namespace", pod.Namespace, "name", pod.Name)
-		for _, container := range pod.Containers {
+		for i, container := range pod.Containers {
 			log = log.With("container", container.Name)
 			log.InfoContext(ctx, "processing container")
-			// TODO: check if container has env vars
+			needAddEnvs := map[string]bool{
+				"TEST_ENVINJECTOR": true,
+			}
+			for _, envVar := range container.Env {
+				if needAddEnvs[envVar.Name] {
+					needAddEnvs[envVar.Name] = false
+				}
+			}
+			envVars := make([]EnvVar, 0)
+			for k, v := range needAddEnvs {
+				if !v {
+					continue
+				}
+				envVars = append(envVars, EnvVar{
+					Name:  k,
+					Value: k,
+				})
+			}
+			buf, err := json.Marshal(envVars)
+			if err != nil {
+				return err
+			}
+			ope := operation.JQPatch{
+				APIVersion: "v1",
+				Kind:       "Pod",
+				Namespace:  pod.Namespace,
+				Name:       pod.Name,
+				JQFilter:   fmt.Sprintf(tmpl, i, i, string(buf)),
+			}
+			operations = append(operations, ope)
 		}
 	}
 
-	return nil
+	return yevna.Run(
+		ctx,
+		yevna.Input(operations),
+		yevna.HandlerFunc(func(c *yevna.Context, in any) (any, error) {
+			return json.Marshal(in)
+		}),
+		yevna.WriteFile(k8sPatchPath),
+	)
 }
